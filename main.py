@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 
@@ -48,19 +48,20 @@ st.subheader("📊 예측 결과")
 st.markdown(f"**선형 회귀 모델 예측 산불 피해 면적:** {lin_pred:.0f} ha")
 st.markdown(f"**랜덤포레스트 모델 예측 산불 피해 면적:** {rf_pred:.0f} ha")
 
-# Plot historical data and prediction
-fig, ax = plt.subplots()
-ax.scatter(df['forest_care_area'], df['fire_damage_area'], label='실제 데이터', color='green')
-ax.plot(df['forest_care_area'], lin_model.predict(X), label='선형 회귀선', color='blue')
-ax.axvline(user_input, linestyle='--', color='gray', label='시뮬레이션 입력')
-ax.scatter(user_input, lin_pred, color='blue', label='선형 예측')
-ax.scatter(user_input, rf_pred, color='red', label='RF 예측')
-ax.set_xlabel("숲가꾸기 면적 (천 ha)")
-ax.set_ylabel("산불 피해 면적 (ha)")
-ax.legend()
-st.pyplot(fig)
+# Plot with Plotly
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=df['forest_care_area'], y=df['fire_damage_area'],
+                         mode='markers', name='실제 데이터', marker=dict(color='green')))
+fig.add_trace(go.Scatter(x=df['forest_care_area'], y=lin_model.predict(X),
+                         mode='lines', name='선형 회귀선', line=dict(color='blue')))
+fig.add_trace(go.Scatter(x=[user_input], y=[lin_pred], mode='markers', name='선형 예측', marker=dict(color='blue', size=10)))
+fig.add_trace(go.Scatter(x=[user_input], y=[rf_pred], mode='markers', name='RF 예측', marker=dict(color='red', size=10)))
+fig.add_vline(x=user_input, line=dict(dash='dash', color='gray'), annotation_text='시뮬레이션 입력', annotation_position="top")
+fig.update_layout(title="숲가꾸기 면적 vs 산불 피해 면적",
+                  xaxis_title="숲가꾸기 면적 (천 ha)",
+                  yaxis_title="산불 피해 면적 (ha)")
+st.plotly_chart(fig, use_container_width=True)
 
 # Optional: Display data
 with st.expander("📂 원본 데이터 보기"):
     st.dataframe(df.style.format({"forest_care_area": "{:.0f}", "fire_damage_area": "{:.0f}"}))
-
