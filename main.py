@@ -142,7 +142,10 @@ st.markdown("----")
 BASE_DIR = Path(__file__).parent  # main.py가 있는 폴더 기준
 
 def display_pdf_from_local(rel_path: str, title: str, height: int = 700):
-    """리포지토리 내부 PDF를 iframe으로 띄우는 함수"""
+    """
+    리포지토리 내부 PDF를 iframe으로 띄우고,
+    동시에 다운로드 버튼도 제공하는 함수.
+    """
     pdf_path = BASE_DIR / rel_path
 
     st.subheader(title)
@@ -152,9 +155,21 @@ def display_pdf_from_local(rel_path: str, title: str, height: int = 700):
         st.warning(f"⚠ `{pdf_path}` 파일이 존재하지 않습니다. 경로와 파일명을 확인해 주세요.")
         return
 
+    # 바이너리 읽기
     with pdf_path.open("rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+        pdf_bytes = f.read()
 
+    # --- 다운로드 버튼 (브라우저에서 안 보일 때 대비용) ---
+    st.download_button(
+        label="📥 PDF 다운로드해서 보기",
+        data=pdf_bytes,
+        file_name=pdf_path.name,
+        mime="application/pdf",
+        key=f"download_{pdf_path.name}"
+    )
+
+    # --- iframe 내에서 바로 보여주기 시도 (일부 브라우저에서만 보일 수 있음) ---
+    base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
     pdf_display = f"""
     <iframe
         src="data:application/pdf;base64,{base64_pdf}"
@@ -164,6 +179,8 @@ def display_pdf_from_local(rel_path: str, title: str, height: int = 700):
     </iframe>
     """
     st.markdown(pdf_display, unsafe_allow_html=True)
+
+    st.caption("※ 일부 브라우저(Safari 등)에서는 위 박스가 비어 보일 수 있습니다. 그 경우 위의 다운로드 버튼을 눌러 열어보세요.")
 
 # -------------------------------------------
 # 하단: PDF 직접 열람 섹션
