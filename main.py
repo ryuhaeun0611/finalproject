@@ -114,33 +114,56 @@ st.markdown("""
 
 st.markdown("----")
 
-# ---------------------------------------------------------
-# 📂 업로드한 PDF 연구자료 직접 열어보기
-# ---------------------------------------------------------
+import base64
+from pathlib import Path
+import streamlit as st
+
+# ... (위에는 기존 제목/내용 코드가 있다고 가정) ...
+
+
+# ==============================
+# 📄 하단: PDF 직접 열람 섹션
+# ==============================
+st.markdown("---")
 st.markdown("## 📄 참고한 연구자료 직접 보기")
 
-pdf1_path = "/mnt/data/산림 내 도로의 확대는 대형산불을 막을 수 있는가.pdf"
-pdf2_path = "/mnt/data/임도와 산림경영이 산불 발생에 미치는 영향.pdf"
+BASE_DIR = Path(__file__).parent  # main.py가 있는 폴더 기준
+
+def display_pdf_from_local(rel_path: str, title: str, height: int = 500):
+    """리포지토리 내부 PDF를 iframe으로 띄우는 함수"""
+    pdf_path = BASE_DIR / rel_path
+
+    st.subheader(title)
+    st.caption(f"`{rel_path}` 위치에서 불러옵니다.")
+
+    if not pdf_path.exists():
+        st.warning(f"⚠ `{pdf_path}` 파일을 찾을 수 없습니다. 경로와 파일명을 다시 확인해 주세요.")
+        return
+
+    with pdf_path.open("rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+
+    pdf_display = f"""
+    <iframe
+        src="data:application/pdf;base64,{base64_pdf}"
+        width="100%"
+        height="{height}px"
+        type="application/pdf">
+    </iframe>
+    """
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("🔍 연구 1: 도로 확대 & 대형산불")
-    st.download_button(
-        label="📥 PDF 다운로드",
-        data=open(pdf1_path, "rb").read(),
-        file_name="도로확대_대형산불.pdf"
+    display_pdf_from_local(
+        "pdf/road_fire.pdf",
+        "🔍 연구 1: 산림 내 도로 확대와 대형산불"
     )
-    display_pdf(pdf1_path)
 
 with col2:
-    st.subheader("🌲 연구 2: 임도·경영과 산불 발생")
-    st.download_button(
-        label="📥 PDF 다운로드",
-        data=open(pdf2_path, "rb").read(),
-        file_name="임도경영_산불영향.pdf"
+    display_pdf_from_local(
+        "pdf/forest_road_fire.pdf",
+        "🌲 연구 2: 임도·산림경영과 산불 발생"
     )
-    display_pdf(pdf2_path)
-    
-display_pdf_from_local("pdf/forest_fire.pdf")
-display_pdf_from_local("pdf/road_fire.pdf")
