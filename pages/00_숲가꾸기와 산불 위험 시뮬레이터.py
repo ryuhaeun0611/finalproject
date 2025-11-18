@@ -14,6 +14,18 @@ from pathlib import Path
 plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
 
 # -------------------------------------------
+# 프로젝트 루트 / data 폴더 경로 계산
+#   - 이 파일이 pages/ 안에 있어도, main.py 옆 data/를 찾도록 처리
+# -------------------------------------------
+THIS_FILE = Path(__file__).resolve()
+if THIS_FILE.parent.name == "pages":
+    ROOT_DIR = THIS_FILE.parents[1]   # .../finalproject
+else:
+    ROOT_DIR = THIS_FILE.parent       # .../finalproject
+
+DATA_DIR = ROOT_DIR / "data"
+
+# -------------------------------------------
 # 페이지 설정
 # -------------------------------------------
 st.set_page_config(page_title="숲가꾸기와 산불 위험 시뮬레이터", layout="wide")
@@ -311,9 +323,7 @@ with st.expander("📂 시뮬레이션에 사용된 예시 데이터 보기"):
 
 # 8-2) 실제 연구 자료 CSV 열람하기
 with st.expander("📂 실제 연구 자료 CSV 열람하기"):
-    DATA_DIR = Path(__file__).parent / "data"
-
-    # GitHub에 올려둔 실제 파일 이름과 제목 매핑
+    # GitHub data/ 폴더에 있는 실제 파일 이름과 제목 매핑
     CSV_FILES = {
         "과거 10년간 산불통계 (연도별)": "과거 10년간 산불통계_연도.csv",
         "과거 10년간 산불통계 (지역별)": "과거 10년간 산불통계_지역.csv",
@@ -327,6 +337,8 @@ with st.expander("📂 실제 연구 자료 CSV 열람하기"):
             return pd.read_csv(path)
         except UnicodeDecodeError:
             return pd.read_csv(path, encoding="cp949")
+
+    st.write(f"🔎 현재 data 폴더 경로: `{DATA_DIR}`")
 
     for title, filename in CSV_FILES.items():
         file_path = DATA_DIR / filename
