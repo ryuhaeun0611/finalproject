@@ -142,5 +142,5 @@ with col2:
     )
     display_pdf(pdf2_path)
     
-display_pdf_from_local("pdf/산림 내 도로의 확대는 대형산불을 막을 수 있는가.pdf")
-display_pdf_from_local("pdf/임도와 산림경영이 산불 발생에 미치는 영향.pdf")
+display_pdf_from_local("pdf/forest_fire.pdf")
+display_pdf_from_local("pdf/road_fire.pdf")
