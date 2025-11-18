@@ -6,6 +6,14 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 import shap
 import matplotlib.pyplot as plt
+import matplotlib
+
+# -------------------------------------------
+# Matplotlib 한글 폰트 설정 (글자 깨짐 방지)
+# -------------------------------------------
+# 시스템에 있는 폰트 중 사용 가능한 것을 자동으로 선택하도록
+plt.rcParams['font.family'] = ['AppleGothic', 'Malgun Gothic', 'NanumGothic', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
 
 # -------------------------------------------
 # 페이지 설정
@@ -106,7 +114,7 @@ st.sidebar.header("🧪 시뮬레이션 입력값")
 forest_input = st.sidebar.slider("숲가꾸기/조림 밀도 (0~0.8)", 0.05, 0.80, 0.40, step=0.01)
 st.sidebar.markdown(
     "<span style='font-size: 0.8rem; color: gray;'>"
-    "→ 조림 및 숲가꾸기 작업이 어느 정도 강도로 이루어졌는지를 나타내는 지표입니다."
+    "조림 및 숲가꾸기 작업이 어느 정도 강도로 이루어졌는지를 나타내는 지표입니다."
     "</span>",
     unsafe_allow_html=True,
 )
@@ -114,7 +122,7 @@ st.sidebar.markdown(
 canopy_input = st.sidebar.slider("수관 밀도 (0~1)", 0.3, 1.0, 0.75, step=0.01)
 st.sidebar.markdown(
     "<span style='font-size: 0.8rem; color: gray;'>"
-    "→ 나무의 윗부분(수관)이 하늘을 얼마나 촘촘하게 가리고 있는지를 나타냅니다."
+    "나무의 윗부분(수관)이 하늘을 얼마나 촘촘하게 가리고 있는지를 나타냅니다."
     "</span>",
     unsafe_allow_html=True,
 )
@@ -126,7 +134,7 @@ slope_input = st.sidebar.slider("평균 경사도 (도)", 0, 45, 25, step=1)
 stand_input = st.sidebar.slider("임분 밀도 (0~1)", 0.2, 1.0, 0.65, step=0.01)
 st.sidebar.markdown(
     "<span style='font-size: 0.8rem; color: gray;'>"
-    "→ 현재 숲에서 나무들이 얼마나 빽빽하게 서 있는지(혼잡도)를 나타내는 지표입니다."
+    "현재 숲에서 나무들이 얼마나 빽빽하게 서 있는지(혼잡도)를 나타내는 지표입니다."
     "</span>",
     unsafe_allow_html=True,
 )
@@ -210,14 +218,13 @@ st.markdown("""
 """)
 
 # -------------------------------------------
-# 6. SHAP 변수 영향력 분석 (한글 라벨)
+# 6. SHAP 변수 영향력 분석 (한글 라벨 + 축 라벨 한글화)
 # -------------------------------------------
 st.subheader("🔎 변수 영향력 분석 (SHAP)")
 
 explainer = shap.Explainer(rf_model, X)
 shap_values = explainer(X, check_additivity=False)
 
-# ① 전체 데이터에서 각 변수의 중요도 (막대 그래프)
 st.markdown("**① 전체 데이터에서 각 변수의 중요도 (막대 그래프)**")
 
 # X의 컬럼명을 한글로 바꾼 복사본 생성
@@ -225,16 +232,13 @@ X_ko = X.copy()
 X_ko.columns = [FEATURE_NAME_KO[col] for col in X.columns]
 
 fig_summary, ax = plt.subplots()
-
-# SHAP summary bar plot
 shap.summary_plot(shap_values, X_ko, plot_type="bar", show=False)
 
-# 🔥 여기서 x축, y축 한국어로 수동 수정!
-plt.xlabel("평균 절대 SHAP 값 (모델 출력에 대한 평균 영향력)", fontsize=12)
-plt.ylabel("변수 이름", fontsize=12)
+# 한글 축 레이블 설정
+ax.set_xlabel("평균 절대 SHAP 값 (모델 예측에 대한 평균 영향력)", fontsize=12)
+ax.set_ylabel("변수 이름", fontsize=12)
 
 st.pyplot(fig_summary)
-
 
 st.markdown("**② 현재 입력값에 대한 변수별 기여도**")
 
