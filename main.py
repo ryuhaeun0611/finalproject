@@ -1,4 +1,11 @@
 import streamlit as st
+from pathlib import Path
+
+st.write("현재 실행 경로:", Path(__file__).resolve())
+st.write("현재 디렉토리 목록:", list((Path(__file__).parent).iterdir()))
+
+
+import streamlit as st
 import base64
 from pathlib import Path
 
