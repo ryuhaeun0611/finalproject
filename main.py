@@ -1,296 +1,115 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-import shap
-import matplotlib.pyplot as plt
 
-# -------------------------------------------------------------------
-# 🔧 주요 개선 사항
-# 1) 예시 데이터 구조를 논문 결과에 맞춰 재구성
-#    - forest_care_density(숲가꾸기/조림 밀도) ↑ → fire_damage_area ↑
-#    - conifer_ratio(침엽수 비율), stand_density(임분 밀도) ↑ → 피해 증가
-#    - humidity(상대습도) ↑ → 피해 감소
-# 2) "숲가꾸기 활동이 많을수록 피해가 커진다"를
-#    - 산점도 + 회귀 직선 + 사용자의 현재 입력점 으로 시각적으로 강조
-# 3) SHAP summary plot과 함께
-#    - forest_care_density의 평균적 중요도가 높게 나오도록 데이터 구성
-# 4) 임도 접근성 변수는 연구결과상 영향이 없으므로 모델에서 제외(설명만 언급)
-# -------------------------------------------------------------------
+st.set_page_config(
+    page_title="숲가꾸기와 산불 피해",
+    layout="wide"
+)
 
-st.set_page_config(page_title="산불 피해 시뮬레이션", layout="wide")
-st.title("🌲 다중 변수 기반 산불 피해 예측 시뮬레이션")
+st.title("🌲 숲가꾸기 활동이 산불 피해에 미치는 영향")
 
 st.markdown("""
-이 앱은 **숲가꾸기(조림·숲가꾸기 면적/밀도)**, **수종 구성(침엽수 비율)**,  
-**수관 밀도**, **지형(경사도)**, **임분 밀도**, **습도** 등이  
-산불 **피해 면적(ha)** 에 어떤 영향을 줄 수 있는지 시뮬레이션합니다.
+## 1. 문제의식
 
-업로드한 논문·통계자료에서 공통적으로 나타난 경향을 반영하여,
+한국 산림 정책에서 **‘숲가꾸기(하층식생 제거, 솎아베기, 조림 등)’**는  
+오랫동안 *산불 예방과 임업 생산성 향상에 도움이 된다*는 전제 아래 추진되어 왔습니다.
 
-- 숲가꾸기/조림 밀도가 높을수록 → 산불 피해가 **증가**하고  
-- 침엽수 비율·임분 밀도가 높을수록 → 산불 피해가 **증가**하며  
-- 습도가 높을수록 → 산불 피해가 **감소**하는
+하지만 최근 연구들에서는 오히려 다음과 같은 결과들이 나타납니다.
 
-방향으로 예시 데이터를 구성하였습니다.
-""")
+- **경북 전체 1km 격자 분석(로지스틱 회귀)**  
+  - 숲가꾸기·조림 비율이 높은 격자일수록 **산불 발생 확률이 유의하게 증가**
+  - 침엽수 비율, 임분 밀도 역시 산불 발생에 **정(+)의 영향**
+  - 상대습도는 **음(-)의 영향** (습할수록 안전)
 
-st.info(
-    "※ 임도 접근성 변수는 경북 분석 및 강릉 난곡 사례 연구에서 "
-    "`산불 발생·피해와 통계적으로 유의한 관련이 없음`으로 나타나, "
-    "본 시뮬레이션 모델에서는 제외하고 설명만 제공합니다."
-)
+- **2023년 강릉 난곡동 대형산불 사례 분석**  
+  - 전국 최고 수준의 도로·임도 밀도(접근성)에도 불구하고  
+    **모든 산림 패치가 불탐**
+  - 산불 확산은 도로·임도보다 **강풍·지형·비산거리**에 의해 결정
 
-# -------------------------------------------------------------------
-# 1. 예시 데이터 (연구결과를 반영한 가상 데이터)
-#    - 값 자체는 가상이나, 변수 간 관계는 논문 결과와 일관되게 구성
-# -------------------------------------------------------------------
-data = {
-    # 숲가꾸기/조림 밀도 (예: ha/㎢ 또는 0~1 스케일)
-    'forest_care_density': [0.10, 0.12, 0.15, 0.18, 0.20, 0.25, 0.28, 0.30, 0.32, 0.35,
-                            0.38, 0.40, 0.42, 0.45, 0.48, 0.50, 0.55, 0.60, 0.65, 0.70],
-    # 수관밀도 (0~1) – 너무 낮거나 너무 높으면 피해가 커지는 패턴을 일부 반영
-    'canopy_density':      [0.55, 0.60, 0.62, 0.65, 0.68, 0.70, 0.72, 0.74, 0.76, 0.78,
-                            0.80, 0.82, 0.84, 0.86, 0.88, 0.90, 0.92, 0.93, 0.94, 0.95],
-    # 침엽수 비율 (0~1)
-    'conifer_ratio':       [0.30, 0.32, 0.35, 0.38, 0.40, 0.45, 0.48, 0.50, 0.52, 0.55,
-                            0.58, 0.60, 0.62, 0.64, 0.66, 0.68, 0.70, 0.72, 0.75, 0.78],
-    # 평균 경사도 (도)
-    'slope_degree':        [5, 7, 10, 12, 15, 18, 20, 22, 24, 26,
-                            28, 30, 32, 34, 36, 38, 40, 42, 43, 45],
-    # 임분 밀도 (0~1)
-    'stand_density':       [0.40, 0.42, 0.45, 0.48, 0.50, 0.52, 0.55, 0.58, 0.60, 0.62,
-                            0.64, 0.66, 0.68, 0.70, 0.72, 0.74, 0.76, 0.78, 0.80, 0.82],
-    # 상대습도(%)
-    'humidity':            [70, 68, 72, 65, 63, 60, 58, 55, 53, 50,
-                            48, 45, 43, 40, 38, 35, 33, 30, 28, 25],
-}
+즉,
 
-df = pd.DataFrame(data)
+> “숲가꾸기와 도로 확충이 산불 예방과 진화에 도움이 된다”는 직관이  
+> 실제 데이터에서는 뚜렷하게 지지되지 않는다.
 
-# 피해 면적 생성: 연구 결과 방향성을 반영한 가상의 함수 + 약간의 노이즈
-# (숲가꾸기 밀도, 침엽수 비율, 임분 밀도는 +, 습도는 -)
-rng = np.random.default_rng(42)
-base = (
-    500
-    + 9000 * df['forest_care_density']      # 숲가꾸기 효과 (양의 영향)
-    + 8000 * df['conifer_ratio']            # 침엽수 비율 (양의 영향)
-    + 6000 * df['stand_density']            # 임분 밀도 (양의 영향)
-    + 20   * df['slope_degree']             # 경사도 (완만한 양의 영향)
-    - 30   * df['humidity']                 # 습도 (음의 영향)
-)
-noise = rng.normal(0, 400, size=len(df))
-df['fire_damage_area'] = np.clip(base + noise, 50, None)  # 최소 50ha 이상으로 clip
+---
 
-# -------------------------------------------------------------------
-# 2. 특징 및 타겟 설정
-# -------------------------------------------------------------------
-features = ['forest_care_density', 'canopy_density', 'conifer_ratio',
-            'slope_degree', 'stand_density', 'humidity']
-X = df[features]
-y = df['fire_damage_area']
+## 2. 메커니즘: 왜 숲가꾸기가 산불에 취약한 구조를 만들까?
 
-# 모델 학습
-reg_model = LinearRegression().fit(X, y)
-rf_model = RandomForestRegressor(
-    random_state=42,
-    n_estimators=300,
-    max_depth=5
-).fit(X, y)
+### 1) 하층식생 제거 → 습기 완충장치 상실
 
-# -------------------------------------------------------------------
-# 3. 사이드바 입력 (사용자가 가정하는 산림 상태)
-# -------------------------------------------------------------------
-st.sidebar.header("🧪 시뮬레이션 입력")
+- 기존의 **활엽수 하층식생, 관목, 초본층**은
+  - 토양 수분을 붙잡고,
+  - 숲 내부 미기후(그늘, 습도)를 유지하며,
+  - 연료가 너무 균질하게 연결되지 않도록 완충 역할을 합니다.
+- 숲가꾸기 작업으로 이 층이 제거되면:
+  - 햇빛·바람이 지면까지 직접 도달
+  - 토양과 낙엽층이 빠르게 건조
+  - **습기 완충장치가 사라져** 발화·확산이 쉬워집니다.
 
-forest_input = st.sidebar.slider("숲가꾸기/조림 밀도 (0~0.8)", 0.05, 0.80, 0.40, step=0.01)
-canopy_input = st.sidebar.slider("수관 밀도 (0~1)", 0.3, 1.0, 0.75, step=0.01)
-species_input = st.sidebar.slider("침엽수 비율 (0~1)", 0.0, 1.0, 0.55, step=0.01)
-slope_input = st.sidebar.slider("평균 경사도 (도)", 0, 45, 25, step=1)
-stand_input = st.sidebar.slider("임분 밀도 (0~1)", 0.2, 1.0, 0.65, step=0.01)
-humidity_input = st.sidebar.slider("상대습도 (%)", 10, 100, 40, step=1)
+이를 단순화하면 다음과 같은 경로로 볼 수 있습니다.
 
-# 입력 배열 생성
-input_array = np.array([[forest_input, canopy_input, species_input,
-                         slope_input, stand_input, humidity_input]])
+> 숲가꾸기(하층식생 제거)  
+> → 숲 내부 습도 감소(understory moisture 감소)  
+> → 발화·확산 가능성 증가  
+> → 산불 피해 증가
 
-# 예측
-reg_pred = reg_model.predict(input_array)[0]
-rf_pred = rf_model.predict(input_array)[0]
+---
 
-# -------------------------------------------------------------------
-# 4. 예측 결과 출력
-# -------------------------------------------------------------------
-st.subheader("📊 예측 결과")
-col1, col2 = st.columns(2)
-with col1:
-    st.metric("다중회귀 예측 산불 피해 면적 (ha)", f"{reg_pred:,.0f}")
-with col2:
-    st.metric("랜덤포레스트 예측 산불 피해 면적 (ha)", f"{rf_pred:,.0f}")
+### 2) 침엽수 편중 + 높은 임분 밀도
 
-st.caption(
-    "※ 수치는 연구결과의 '방향성'을 시뮬레이션하기 위한 가상의 값이며, "
-    "실제 피해 규모를 그대로 반영하는 것은 아닙니다."
-)
+- 침엽수(소나무, 리기다, 침엽조림지 등)는
+  - 수지가 많고,
+  - 수관이 연속적으로 연결되어 있으며,
+  - 가연성 기름막(needle litter)을 두텁게 형성합니다.
+- 이 상태에서 **간벌은 했지만 충분한 구조 전환(혼효림화, 수관단절 등)이 이루어지지 않으면**  
+  → 오히려 **잘 마르고 잘 타는 균질한 연료층**이 만들어집니다.
 
-# -------------------------------------------------------------------
-# 5. 시각화 1: 숲가꾸기 활동이 많을수록 피해가 커지는지 확인
-#    - 실제(예시) 데이터 + 회귀 직선 + 사용자 입력점
-# -------------------------------------------------------------------
-st.subheader("🌲 숲가꾸기/조림 밀도와 산불 피해 면적의 관계")
+---
 
-# 회귀 직선을 그리기 위해 forest_care만 변화시키고 나머지는 평균값으로 고정
-forest_range = np.linspace(df['forest_care_density'].min(),
-                           df['forest_care_density'].max(), 50)
-X_line = pd.DataFrame({
-    'forest_care_density': forest_range,
-    'canopy_density': np.full_like(forest_range, df['canopy_density'].mean()),
-    'conifer_ratio': np.full_like(forest_range, df['conifer_ratio'].mean()),
-    'slope_degree': np.full_like(forest_range, df['slope_degree'].mean()),
-    'stand_density': np.full_like(forest_range, df['stand_density'].mean()),
-    'humidity': np.full_like(forest_range, df['humidity'].mean()),
-})
-line_pred = reg_model.predict(X_line)
+### 3) 임도·도로 확대의 한계
 
-fig1 = go.Figure()
+연구 결과에 따르면:
 
-# ① 예시 데이터 산점도
-fig1.add_trace(go.Scatter(
-    x=df['forest_care_density'],
-    y=df['fire_damage_area'],
-    mode='markers',
-    name='예시 관측값',
-    marker=dict(size=8)
-))
+- 임도 접근성(도로까지의 거리)은 **산불 발생 확률과 유의한 관계 없음**
+- 강릉 사례에서, **폭이 넓은 도로·하천·제방조차 비산에 의해 쉽게 넘어감**
+- 즉, 임도는
+  - 산불을 “물리적으로 차단하는 방화선”도 아니고,
+  - 대형산불 상황에서 “결정적인 진화 효율성 향상”도 보이지 않음
 
-# ② 회귀 직선
-fig1.add_trace(go.Scatter(
-    x=forest_range,
-    y=line_pred,
-    mode='lines',
-    name='선형회귀 추세선',
-    line=dict(width=3, dash='solid')
-))
+---
 
-# ③ 사용자의 현재 입력점
-fig1.add_trace(go.Scatter(
-    x=[forest_input],
-    y=[rf_pred],
-    mode='markers',
-    name='현재 시나리오(RF 예측)',
-    marker=dict(size=12, symbol='star')
-))
+## 3. 이 앱에서 보고자 하는 것
 
-fig1.update_layout(
-    title="숲가꾸기/조림 밀도 증가에 따른 산불 피해 면적 변화 (다른 변수 평균 고정)",
-    xaxis_title="숲가꾸기/조림 밀도 (0~0.8, 상대값)",
-    yaxis_title="산불 피해 면적 (ha)",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-)
-st.plotly_chart(fig1, use_container_width=True)
+이 앱의 각 페이지는 다음을 보여줍니다.
 
-st.markdown("""
-위 그래프에서 **숲가꾸기/조림 밀도가 오른쪽(0.7 근처)으로 갈수록 회귀 직선이 뚜렷하게 상승**하는 것을 볼 수 있습니다.  
-이는 업로드된 연구 결과와 마찬가지로 **“숲가꾸기 활동이 집중된 지역일수록 산불 피해가 커지는 경향”**을
-시각적으로 확인할 수 있게 해 줍니다.
-""")
+1. **[현재 페이지] 개념 설명**  
+   - 왜 숲가꾸기가 산불에 취약한 구조를 만들 수 있는지,  
+     메커니즘과 연구 결과의 흐름을 정리합니다.
 
-# -------------------------------------------------------------------
-# 6. 시각화 2: 다른 변수들을 포함한 SHAP 분석
-# -------------------------------------------------------------------
-st.subheader("🔎 변수 영향력 분석 (SHAP)")
+2. **[다음 페이지] 시뮬레이션**  
+   - 가상의 데이터를 사용하여  
+     - 숲가꾸기 밀도, 침엽수 비율, 임분 밀도, 습도, 경사도 등이  
+       산불 피해에 어떤 방향으로 영향을 미치는지를 시각적으로 탐색합니다.
+   - 특히,
+     - `forest_care_density ↑ → fire_damage_area ↑`  
+     - `humidity ↑ → fire_damage_area ↓`
+     를 SHAP와 회귀선을 통해 확인합니다.
 
-# Tree 기반 모델이므로 TreeExplainer 사용
-explainer = shap.Explainer(rf_model, X)
-# additivity 체크 끄기
-shap_values = explainer(X, check_additivity=False)
+3. **[세 번째 페이지] 지역별 클러스터링**  
+   - 전처리한 `region_df.csv`를 업로드하면,
+   - **표준화된 다변량 특성(숲가꾸기 강도, 피해규모, 임도 연장 등)** 을 기준으로
+   - 비슷한 구조를 가진 지역끼리 클러스터링합니다.
+   - 이를 통해,
+     - “숲가꾸기가 강하고 피해도 큰 고위험군 지역”
+     - “숲가꾸기는 적지만 피해가 큰 예외적 지역”
+     - “둘 다 낮은 저위험군 지역”
+     등을 시각적으로 구분할 수 있습니다.
 
-st.markdown("**(1) 전체 데이터 기준 변수 중요도 – forest_care_density가 상단에 오는지 확인해 보세요.**")
+---
 
-fig_summary, ax = plt.subplots()
-shap.summary_plot(shap_values, X, plot_type="bar", show=False)
-st.pyplot(fig_summary)
+이제 왼쪽 사이드바의 **Pages** 메뉴에서
 
-st.markdown("**(2) 현재 입력값에 대한 변수별 기여도**")
+- **② 산불 피해 시뮬레이션**
+- **③ 지역별 산불 피해 클러스터링**
 
-sample_df = pd.DataFrame(input_array, columns=features)
-sample_shap = explainer(sample_df, check_additivity=False)
-shap_vals = sample_shap.values[0]
-
-for i, f in enumerate(features):
-    st.write(f"- {f}: 영향력 {shap_vals[i]:+.2f}")
-    
-# =========================
-# (A) 하층습기 지수 계산
-# =========================
-df["understory_moisture_index"] = df["humidity"] * (1 - df["forest_care_density"])
-
-understory_moisture_input = humidity_input * (1 - forest_input)
-
-st.subheader("💧 숲가꾸기 → 하층식생 제거 → 습기 감소 경로 보기")
-
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.metric("현재 시나리오 숲가꾸기/조림 밀도", f"{forest_input:.2f}")
-with c2:
-    st.metric("현재 시나리오 상대습도(%)", f"{humidity_input:.0f}")
-with c3:
-    st.metric("추정 하층습기 지수", f"{understory_moisture_input:.1f}")
-
-st.caption(
-    "※ 하층습기 지수 = 습도 × (1 − 숲가꾸기 밀도)로 단순화한 지표입니다.\n"
-    "숲가꾸기 밀도가 높을수록(하층식생이 많이 제거될수록) 같은 습도에서도 지수가 낮아집니다."
-)
-
-# (B) 하층습기 지수와 산불 피해 관계 시각화
-fig_moist = go.Figure()
-fig_moist.add_trace(go.Scatter(
-    x=df["understory_moisture_index"],
-    y=df["fire_damage_area"],
-    mode="markers",
-    name="예시 관측값",
-    marker=dict(size=8)
-))
-fig_moist.add_trace(go.Scatter(
-    x=[understory_moisture_input],
-    y=[rf_pred],
-    mode="markers",
-    name="현재 시나리오",
-    marker=dict(size=12, symbol="star")
-))
-fig_moist.update_layout(
-    title="하층습기 지수와 산불 피해 면적의 관계",
-    xaxis_title="하층습기 지수 (humidity × (1 − forest_care_density))",
-    yaxis_title="산불 피해 면적 (ha)"
-)
-st.plotly_chart(fig_moist, use_container_width=True)
-
-st.markdown("""
-위 그래프에서 **하층습기 지수가 낮을수록(오른쪽이 아니라 왼쪽 방향)**  
-예시 데이터들이 더 큰 피해 면적 쪽에 몰려 있다면,
-
-> 숲가꾸기 → 활엽수 하층식생 제거 → 숲의 습기 감소 → 산불 피해 증가
-
-라는 연구 결과를 직관적으로 보여주는 시각화가 됩니다.
-""")
-
-# -------------------------------------------------------------------
-# 7. 원본(예시) 데이터 테이블
-# -------------------------------------------------------------------
-with st.expander("📂 학습에 사용된 예시 데이터 보기"):
-    st.dataframe(df.style.format({"fire_damage_area": "{:.1f}"}))
-
-# -------------------------------------------------------------------
-# 8. 부가 설명
-# -------------------------------------------------------------------
-st.markdown("""
-### 📌 해석 가이드
-
-- 그래프와 SHAP 결과에서 **`forest_care_density`의 기울기와 중요도가 크고 양(+)의 방향**으로 나타나면  
-  → *현재의 숲가꾸기·조림 방식이 산불 피해를 줄이기보다는 늘리는 쪽으로 작용할 수 있다*는 연구 결과와 일치합니다.
-
-- 반대로 **humidity(습도)**는 음(-)의 기여를 보여야 하며,  
-  **conifer_ratio(침엽수 비율)**, **stand_density(임분 밀도)**는 양(+)의 방향으로 나타나는지 확인해 보세요.
+을 순서대로 눌러보시면 됩니다.
 """)
