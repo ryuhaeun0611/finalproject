@@ -123,7 +123,7 @@ st.sidebar.header("🧪 시뮬레이션 입력값")
 forest_input = st.sidebar.slider("숲가꾸기/조림 밀도 (0~0.8)", 0.05, 0.80, 0.40, step=0.01)
 st.sidebar.markdown(
     "<span style='font-size: 0.8rem; color: gray;'>"
-    "**조림 및 숲가꾸기 작업이 어느 정도 강도로 이루어졌는지를 나타내는 지표입니다.**"
+    "→ 조림 및 숲가꾸기 작업이 어느 정도 강도로 이루어졌는지를 나타내는 지표입니다.**"
     "</span>",
     unsafe_allow_html=True,
 )
