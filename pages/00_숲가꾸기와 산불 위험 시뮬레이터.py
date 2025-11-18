@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 import shap
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 # -------------------------------------------
 # (옵션) 마이너스 깨짐 방지만 유지
@@ -301,7 +302,45 @@ fig_moist.update_layout(
 st.plotly_chart(fig_moist, use_container_width=True)
 
 # -------------------------------------------
-# 8. 데이터 표
+# 8. 데이터 표 – 예시 데이터 + 실제 CSV
 # -------------------------------------------
+
+# 8-1) 예시 데이터
 with st.expander("📂 시뮬레이션에 사용된 예시 데이터 보기"):
     st.dataframe(df)
+
+# 8-2) 실제 연구 자료 CSV 열람하기
+with st.expander("📂 실제 연구 자료 CSV 열람하기"):
+    DATA_DIR = Path(__file__).parent / "data"
+
+    # GitHub에 올려둔 실제 파일 이름과 제목 매핑
+    CSV_FILES = {
+        "과거 10년간 산불통계 (연도별)": "과거 10년간 산불통계_연도.csv",
+        "과거 10년간 산불통계 (지역별)": "과거 10년간 산불통계_지역.csv",
+        "산림청 국유림경영정보 (산림조사)": "산림청_국유림경영정보_산림조사.csv",
+        "산림청 임도시설 현황": "산림청_임도시설 현황.csv",
+    }
+
+    def read_csv_safely(path: Path) -> pd.DataFrame:
+        """인코딩 오류를 피하기 위해 utf-8 → cp949 순서로 시도."""
+        try:
+            return pd.read_csv(path)
+        except UnicodeDecodeError:
+            return pd.read_csv(path, encoding="cp949")
+
+    for title, filename in CSV_FILES.items():
+        file_path = DATA_DIR / filename
+
+        with st.expander(f"📄 {title}"):
+            if file_path.exists():
+                df_src = read_csv_safely(file_path)
+                st.dataframe(df_src)
+
+                st.download_button(
+                    label="⬇ CSV 다운로드",
+                    data=df_src.to_csv(index=False),
+                    file_name=filename,
+                    mime="text/csv",
+                )
+            else:
+                st.warning(f"⚠ `{filename}` 파일을 data 폴더에서 찾을 수 없습니다.")
