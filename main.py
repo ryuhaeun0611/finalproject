@@ -197,6 +197,6 @@ with col1:
 
 with col2:
     display_pdf_from_local(
-        "pdf/forest_road_fire.pdf",  # pdf 폴더 안 파일명과 정확히 일치
+        "pdf/임도와 산림경영이 산불 발생에 미치는 영향.pdf",  # pdf 폴더 안 파일명과 정확히 일치
         "🌲 연구 2: 임도·산림경영이 산불 발생에 미치는 영향"
     )
