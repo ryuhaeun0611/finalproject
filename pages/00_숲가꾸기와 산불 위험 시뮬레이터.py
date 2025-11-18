@@ -6,13 +6,10 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 import shap
 import matplotlib.pyplot as plt
-import matplotlib
 
 # -------------------------------------------
-# Matplotlib 한글 폰트 설정 (글자 깨짐 방지)
+# (옵션) 마이너스 깨짐 방지만 유지
 # -------------------------------------------
-# 시스템에 있는 폰트 중 사용 가능한 것을 자동으로 선택하도록
-plt.rcParams['font.family'] = ['AppleGothic', 'Malgun Gothic', 'NanumGothic', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
 
 # -------------------------------------------
@@ -86,7 +83,6 @@ features = [
     "humidity",
 ]
 
-# 영어 변수명 → 한글 표시명 매핑
 FEATURE_NAME_KO = {
     "forest_care_density": "숲가꾸기/조림 밀도",
     "canopy_density": "수관 밀도",
@@ -218,7 +214,7 @@ st.markdown("""
 """)
 
 # -------------------------------------------
-# 6. SHAP 변수 영향력 분석 (한글 라벨 + 축 라벨 한글화)
+# 6. SHAP 변수 영향력 분석 – Plotly 막대 그래프(완전 한글)
 # -------------------------------------------
 st.subheader("🔎 변수 영향력 분석 (SHAP)")
 
@@ -227,18 +223,29 @@ shap_values = explainer(X, check_additivity=False)
 
 st.markdown("**① 전체 데이터에서 각 변수의 중요도 (막대 그래프)**")
 
-# X의 컬럼명을 한글로 바꾼 복사본 생성
-X_ko = X.copy()
-X_ko.columns = [FEATURE_NAME_KO[col] for col in X.columns]
+# SHAP 값으로부터 변수 중요도(평균 절대값) 계산
+shap_arr = shap_values.values  # (샘플 수, 변수 수)
+mean_abs_shap = np.abs(shap_arr).mean(axis=0)
 
-fig_summary, ax = plt.subplots()
-shap.summary_plot(shap_values, X_ko, plot_type="bar", show=False)
+# 정렬 (중요도 큰 순서)
+sorted_idx = np.argsort(mean_abs_shap)[::-1]
+sorted_importance = mean_abs_shap[sorted_idx]
+sorted_features = [features[i] for i in sorted_idx]
+sorted_features_ko = [FEATURE_NAME_KO[f] for f in sorted_features]
 
-# 한글 축 레이블 설정
-ax.set_xlabel("평균 절대 SHAP 값 (모델 예측에 대한 평균 영향력)", fontsize=12)
-ax.set_ylabel("변수 이름", fontsize=12)
-
-st.pyplot(fig_summary)
+# Plotly 막대 그래프 (한국어)
+fig_imp = go.Figure()
+fig_imp.add_trace(go.Bar(
+    x=sorted_importance,
+    y=sorted_features_ko,
+    orientation="h"
+))
+fig_imp.update_layout(
+    xaxis_title="평균 절대 SHAP 값 (모델 예측에 대한 평균 영향력)",
+    yaxis_title="변수 이름",
+    margin=dict(l=120, r=20, t=20, b=40),
+)
+st.plotly_chart(fig_imp, use_container_width=True)
 
 st.markdown("**② 현재 입력값에 대한 변수별 기여도**")
 
