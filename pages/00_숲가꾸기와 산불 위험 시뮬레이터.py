@@ -7,11 +7,12 @@ from sklearn.ensemble import RandomForestRegressor
 import shap
 import matplotlib.pyplot as plt
 from pathlib import Path
+from pandas.errors import EmptyDataError
 
 # -------------------------------------------
 # (옵션) 마이너스 깨짐 방지만 유지
 # -------------------------------------------
-plt.rcParams['axes.unicode_minus'] = False  # 마이너스 기호 깨짐 방지
+plt.rcParams["axes.unicode_minus"] = False  # 마이너스 기호 깨짐 방지
 
 # -------------------------------------------
 # 프로젝트 루트 / data 폴더 경로 계산
@@ -321,19 +322,23 @@ st.plotly_chart(fig_moist, use_container_width=True)
 with st.expander("📂 시뮬레이션에 사용된 예시 데이터 보기"):
     st.dataframe(df)
 
-# 8-2) 실제 연구 자료 CSV 열람하기
+# 8-2) 실제 연구 자료 CSV 열람하기 (data 폴더의 모든 CSV)
 with st.expander("📂 실제 연구 자료 CSV 열람하기"):
 
-    def read_csv_safely(path: Path) -> pd.DataFrame:
-        """인코딩 오류를 피하기 위해 utf-8 → cp949 순서로 시도."""
+    def read_csv_safely(path: Path):
+        """인코딩/빈 파일 오류를 피하면서 CSV 읽기."""
         try:
             return pd.read_csv(path)
+        except EmptyDataError:
+            return None
         except UnicodeDecodeError:
-            return pd.read_csv(path, encoding="cp949")
+            try:
+                return pd.read_csv(path, encoding="cp949")
+            except EmptyDataError:
+                return None
 
     st.caption(f"현재 data 폴더 경로: `{DATA_DIR}`")
 
-    # data 폴더 안의 모든 CSV 파일 가져오기
     csv_list = sorted(DATA_DIR.glob("*.csv"))
 
     if not csv_list:
@@ -345,10 +350,14 @@ with st.expander("📂 실제 연구 자료 CSV 열람하기"):
 
         st.markdown("---")
 
-        # 각 CSV 파일을 개별 expander로 열람 가능하게
         for p in csv_list:
             with st.expander(f"📄 {p.name}"):
                 df_src = read_csv_safely(p)
+
+                if df_src is None:
+                    st.warning("⚠ 이 파일은 내용이 없거나(빈 파일) CSV로 읽을 수 없습니다.")
+                    continue
+
                 st.dataframe(df_src)
 
                 st.download_button(
