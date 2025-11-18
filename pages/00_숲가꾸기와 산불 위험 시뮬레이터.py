@@ -324,14 +324,6 @@ with st.expander("📂 시뮬레이션에 사용된 예시 데이터 보기"):
 # 8-2) 실제 연구 자료 CSV 열람하기
 with st.expander("📂 실제 연구 자료 CSV 열람하기"):
 
-    # 각 자료를 구분할 키워드(파일명에 포함되어 있을 단어)
-    PATTERNS = {
-        "과거 10년간 산불통계 (연도별)": "연도",
-        "과거 10년간 산불통계 (지역별)": "지역",
-        "산림청 국유림경영정보 (산림조사)": "국유림경영정보",
-        "산림청 임도시설 현황": "임도시설",
-    }
-
     def read_csv_safely(path: Path) -> pd.DataFrame:
         """인코딩 오류를 피하기 위해 utf-8 → cp949 순서로 시도."""
         try:
@@ -339,37 +331,29 @@ with st.expander("📂 실제 연구 자료 CSV 열람하기"):
         except UnicodeDecodeError:
             return pd.read_csv(path, encoding="cp949")
 
-    # data 폴더 안에 실제 어떤 CSV가 있는지 한 번 보여주기
     st.caption(f"현재 data 폴더 경로: `{DATA_DIR}`")
-    csv_list = list(DATA_DIR.glob("*.csv"))
-    if csv_list:
+
+    # data 폴더 안의 모든 CSV 파일 가져오기
+    csv_list = sorted(DATA_DIR.glob("*.csv"))
+
+    if not csv_list:
+        st.warning("data 폴더 안에 CSV 파일이 없습니다.")
+    else:
         st.write("📁 data 폴더에 있는 CSV 파일들:")
         for p in csv_list:
             st.write(f"- `{p.name}`")
-    else:
-        st.warning("data 폴더 안에 CSV 파일이 없습니다.")
-        st.stop()
 
-    # 패턴별로 파일 자동 매칭
-    for title, pattern in PATTERNS.items():
-        # pattern 이 이름에 들어 있는 csv 파일 찾기
-        candidates = [p for p in csv_list if pattern in p.name]
+        st.markdown("---")
 
-        with st.expander(f"📄 {title}"):
-            if not candidates:
-                st.warning(f"⚠ 이름에 `{pattern}` 이(가) 들어 있는 CSV를 data 폴더에서 찾을 수 없습니다.")
-                continue
+        # 각 CSV 파일을 개별 expander로 열람 가능하게
+        for p in csv_list:
+            with st.expander(f"📄 {p.name}"):
+                df_src = read_csv_safely(p)
+                st.dataframe(df_src)
 
-            file_path = candidates[0]  # 첫 번째 매칭 사용
-            df_src = read_csv_safely(file_path)
-
-            st.markdown(f"`{file_path.name}` 파일에서 불러왔습니다.")
-            st.dataframe(df_src)
-
-            st.download_button(
-                label="⬇ CSV 다운로드",
-                data=df_src.to_csv(index=False),
-                file_name=file_path.name,
-                mime="text/csv",
-            )
-
+                st.download_button(
+                    label="⬇ CSV 다운로드",
+                    data=df_src.to_csv(index=False),
+                    file_name=p.name,
+                    mime="text/csv",
+                )
