@@ -181,7 +181,7 @@ with col1:
     )
 
 with col2:
-    st.subheader("🌲 연구 2: 임도와 산림경영이 산불 발생에 미치는 영향")
+    st.subheader("🔍 연구 2: 임도와 산림경영이 산불 발생에 미치는 영향")
     st.caption("`pdf/임도와 산림경영이 산불 발생에 미치는 영향.pdf` 파일을 기반으로 요약했습니다.")
     add_pdf_download_button(
         "임도와 산림경영이 산불 발생에 미치는 영향.pdf",
