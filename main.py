@@ -20,29 +20,30 @@ st.markdown("""
 st.markdown("----")
 
 # =========================================================
-# 📌 PDF 표시 함수 (진짜 필요한 함수는 이것 하나만!)
+# 📌 PDF 표시 함수 (이 함수 하나만 사용!!)
 # =========================================================
-BASE_DIR = Path(__file__).parent  # main.py가 있는 폴더
+BASE_DIR = Path(__file__).parent  # main.py가 있는 폴더 기준
 
 def display_pdf_from_local(rel_path: str, title: str, height: int = 700):
-    """리포지토리 내부 PDF를 iframe으로 띄우는 안전한 함수"""
+    """리포지토리 내부 PDF를 iframe으로 띄우는 함수"""
     pdf_path = BASE_DIR / rel_path
 
     st.subheader(title)
     st.caption(f"`{rel_path}` 에서 파일을 불러옵니다.")
 
     if not pdf_path.exists():
-        st.warning(f"⚠ `{pdf_path}` 파일이 존재하지 않습니다. 경로 및 파일명을 확인하세요.")
+        st.warning(f"⚠ `{pdf_path}` 파일이 존재하지 않습니다. 경로와 파일명을 확인해 주세요.")
         return
 
-    # base64 인코딩
     with pdf_path.open("rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode("utf-8")
 
-    # iframe 렌더링
     pdf_display = f"""
-    <iframe src="data:application/pdf;base64,{base64_pdf}"
-            width="100%" height="{height}px">
+    <iframe
+        src="data:application/pdf;base64,{base64_pdf}"
+        width="100%"
+        height="{height}px"
+        type="application/pdf">
     </iframe>
     """
     st.markdown(pdf_display, unsafe_allow_html=True)
@@ -76,9 +77,11 @@ st.markdown("""
 
 👉 결론: **도로망(임도 포함)이 대형산불의 확산을 막지 못했다.**
 
+---
 
 ### 🧪 연구 2. 경상북도 1km 격자 산불 274건 통계 분석
-- 로지스틱 회귀 결과:
+- 산불 발생 여부를 로지스틱 회귀로 분석
+- 주요 결과:
   - **숲가꾸기·조림 비율 ↑ → 산불 발생 확률 ↑ (유의)**  
   - **침엽수 비율, 임분 밀도 ↑ → 위험 증가(유의)**  
   - **상대습도, 숲의 나이 ↑ → 위험 감소(유의)**  
@@ -96,16 +99,18 @@ st.markdown("""
 ## 2️⃣ 왜 이런 일이 벌어질까? (메커니즘)
 
 ### 🌿 1. 숲가꾸기 → 하층식생 제거 → 습도 감소
-- 하층식생이 토양수분 유지·그늘 제공·연료분절 기능 수행
-- 제거되면 햇빛·바람 지면 도달 → **급속 건조**
+- 원래 하층식생(관목·활엽수)은 **토양 수분 유지 + 그늘형성 + 연료분절** 기능
+- 숲가꾸기로 제거되면:
+  - 햇빛·바람이 지면에 직격 → **급속 건조**
+  - 연료가 균질해져 **발화·확산 쉬움**
 
 ### 🌲 2. 침엽수 편중 + 높은 임분 밀도
-- 침엽수는 가연성이 높고 수관화 위험이 큼  
-- 숲가꾸기로 구조가 더 촘촘해지면 **잘 타는 숲**이 됨
+- 침엽수는 기름 성분·낙엽 특성 때문에 **가연성 높음**
+- 임목 간격이 촘촘하면 수관-수관 연속성 ↑ → **수관화 위험 증가**
 
-### 🛣️ 3. 도로·임도의 한계
-- 강풍 시 불씨가 수십~수백 m 이동  
-- 도로 폭으로는 **비산을 막을 수 없음**
+### 🛣️ 3. 도로·임도 확대의 한계
+- 도로 폭으로는 **비산(ember spotting)을 막을 수 없음**
+- 도로 접근성은 분석 결과 **산불 피해·발생과 유의한 관계 없음**
 """)
 
 st.markdown("----")
@@ -116,16 +121,21 @@ st.markdown("----")
 st.markdown("""
 ## 3️⃣ 이 앱에서 무엇을 볼 수 있나? 👀
 
-1. **산불 피해 시뮬레이션 페이지**  
-2. **지역별 클러스터링 페이지**
+1. **[산불 피해 시뮬레이션]**  
+   - 숲가꾸기, 침엽수 비율, 임분 밀도, 습도 등이  
+     피해 면적에 미치는 **방향성**을 시각적으로 확인.
 
-👉 왼쪽 **Pages 메뉴**에서 선택!
+2. **[지역별 클러스터링]**  
+   - 전처리된 `region_df.csv`를 업로드하면  
+     지역의 산불 구조를 **유클리드 거리 기반 클러스터**로 분석.
+
+👉 왼쪽 **Pages 메뉴**에서 다른 페이지를 선택하세요!
 """)
 
-st.markdown("---")
+st.markdown("----")
 
 # ---------------------------------------------------------
-# 📄 하단 PDF 열람 섹션 (최종)
+# 📄 하단: PDF 직접 열람 섹션
 # ---------------------------------------------------------
 st.markdown("## 📄 참고한 연구자료 직접 보기")
 
@@ -133,12 +143,12 @@ col1, col2 = st.columns(2)
 
 with col1:
     display_pdf_from_local(
-        "pdf/road_fire.pdf",
+        "pdf/road_fire.pdf",   # 👉 여기 파일명은 GitHub pdf 폴더의 실제 이름과 똑같이!
         "🔍 연구 1: 산림 내 도로 확대와 대형산불"
     )
 
 with col2:
     display_pdf_from_local(
-        "pdf/forest_road_fire.pdf",
+        "pdf/forest_road_fire.pdf",  # 👉 이 부분도 실제 파일명과 동일해야 함
         "🌲 연구 2: 임도·산림경영과 산불 발생"
     )
