@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 # 4) 임도 접근성 변수는 연구결과상 영향이 없으므로 모델에서 제외(설명만 언급)
 # -------------------------------------------------------------------
 
-st.set_page_config(page_title="숲가꾸기 기반 산불 위험 분석", layout="wide")
-st.title("🌲 숲가꾸기 기반 산불 위험 분석")
+st.set_page_config(page_title="숲가꾸기와 산불 위험 시뮬레이터", layout="wide")
+st.title("🌲 숲가꾸기와 산불 위험 시뮬레이터")
 
 st.markdown("""
 이 앱은 **숲가꾸기(조림·숲가꾸기 면적/밀도)**, **수종 구성(침엽수 비율)**,  
