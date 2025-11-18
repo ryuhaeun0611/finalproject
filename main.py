@@ -221,6 +221,60 @@ shap_vals = sample_shap.values[0]
 
 for i, f in enumerate(features):
     st.write(f"- {f}: 영향력 {shap_vals[i]:+.2f}")
+    
+# =========================
+# (A) 하층습기 지수 계산
+# =========================
+df["understory_moisture_index"] = df["humidity"] * (1 - df["forest_care_density"])
+
+understory_moisture_input = humidity_input * (1 - forest_input)
+
+st.subheader("💧 숲가꾸기 → 하층식생 제거 → 습기 감소 경로 보기")
+
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.metric("현재 시나리오 숲가꾸기/조림 밀도", f"{forest_input:.2f}")
+with c2:
+    st.metric("현재 시나리오 상대습도(%)", f"{humidity_input:.0f}")
+with c3:
+    st.metric("추정 하층습기 지수", f"{understory_moisture_input:.1f}")
+
+st.caption(
+    "※ 하층습기 지수 = 습도 × (1 − 숲가꾸기 밀도)로 단순화한 지표입니다.\n"
+    "숲가꾸기 밀도가 높을수록(하층식생이 많이 제거될수록) 같은 습도에서도 지수가 낮아집니다."
+)
+
+# (B) 하층습기 지수와 산불 피해 관계 시각화
+fig_moist = go.Figure()
+fig_moist.add_trace(go.Scatter(
+    x=df["understory_moisture_index"],
+    y=df["fire_damage_area"],
+    mode="markers",
+    name="예시 관측값",
+    marker=dict(size=8)
+))
+fig_moist.add_trace(go.Scatter(
+    x=[understory_moisture_input],
+    y=[rf_pred],
+    mode="markers",
+    name="현재 시나리오",
+    marker=dict(size=12, symbol="star")
+))
+fig_moist.update_layout(
+    title="하층습기 지수와 산불 피해 면적의 관계",
+    xaxis_title="하층습기 지수 (humidity × (1 − forest_care_density))",
+    yaxis_title="산불 피해 면적 (ha)"
+)
+st.plotly_chart(fig_moist, use_container_width=True)
+
+st.markdown("""
+위 그래프에서 **하층습기 지수가 낮을수록(오른쪽이 아니라 왼쪽 방향)**  
+예시 데이터들이 더 큰 피해 면적 쪽에 몰려 있다면,
+
+> 숲가꾸기 → 활엽수 하층식생 제거 → 숲의 습기 감소 → 산불 피해 증가
+
+라는 연구 결과를 직관적으로 보여주는 시각화가 됩니다.
+""")
 
 # -------------------------------------------------------------------
 # 7. 원본(예시) 데이터 테이블
