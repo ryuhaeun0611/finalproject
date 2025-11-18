@@ -227,13 +227,13 @@ st.markdown("**① 전체 데이터에서 각 변수의 중요도 (막대 그래
 shap_arr = shap_values.values  # (샘플 수, 변수 수)
 mean_abs_shap = np.abs(shap_arr).mean(axis=0)
 
-# 정렬 (중요도 큰 순서)
-sorted_idx = np.argsort(mean_abs_shap)[::-1]
+# 중요도 작은 것 → 큰 것 순으로 정렬 (가장 큰 값이 y축 맨 위로 가게 하기 위해)
+sorted_idx = np.argsort(mean_abs_shap)  # 오름차순
 sorted_importance = mean_abs_shap[sorted_idx]
 sorted_features = [features[i] for i in sorted_idx]
 sorted_features_ko = [FEATURE_NAME_KO[f] for f in sorted_features]
 
-# Plotly 막대 그래프 (한국어)
+# Plotly 막대 그래프 (한국어, 중요도 큰 순이 위쪽)
 fig_imp = go.Figure()
 fig_imp.add_trace(go.Bar(
     x=sorted_importance,
@@ -242,7 +242,7 @@ fig_imp.add_trace(go.Bar(
 ))
 fig_imp.update_layout(
     xaxis_title="평균 절대 SHAP 값 (모델 예측에 대한 평균 영향력)",
-    yaxis_title="변수 이름",
+    yaxis_title="",  # '변수 이름' 문구 제거
     margin=dict(l=120, r=20, t=20, b=40),
 )
 st.plotly_chart(fig_imp, use_container_width=True)
