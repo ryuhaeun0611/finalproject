@@ -217,6 +217,7 @@ st.subheader("🔎 변수 영향력 분석 (SHAP)")
 explainer = shap.Explainer(rf_model, X)
 shap_values = explainer(X, check_additivity=False)
 
+# ① 전체 데이터에서 각 변수의 중요도 (막대 그래프)
 st.markdown("**① 전체 데이터에서 각 변수의 중요도 (막대 그래프)**")
 
 # X의 컬럼명을 한글로 바꾼 복사본 생성
@@ -224,8 +225,16 @@ X_ko = X.copy()
 X_ko.columns = [FEATURE_NAME_KO[col] for col in X.columns]
 
 fig_summary, ax = plt.subplots()
+
+# SHAP summary bar plot
 shap.summary_plot(shap_values, X_ko, plot_type="bar", show=False)
+
+# 🔥 여기서 x축, y축 한국어로 수동 수정!
+plt.xlabel("평균 절대 SHAP 값 (모델 출력에 대한 평균 영향력)", fontsize=12)
+plt.ylabel("변수 이름", fontsize=12)
+
 st.pyplot(fig_summary)
+
 
 st.markdown("**② 현재 입력값에 대한 변수별 기여도**")
 
