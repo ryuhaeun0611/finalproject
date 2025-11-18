@@ -324,11 +324,12 @@ with st.expander("📂 시뮬레이션에 사용된 예시 데이터 보기"):
 # 8-2) 실제 연구 자료 CSV 열람하기
 with st.expander("📂 실제 연구 자료 CSV 열람하기"):
 
-    CSV_FILES = {
-        "과거 10년간 산불통계 (연도별)": "과거 10년간 산불통계_연도.csv",
-        "과거 10년간 산불통계 (지역별)": "과거 10년간 산불통계_지역.csv",
-        "산림청 국유림경영정보 (산림조사)": "산림청_국유림경영정보_산림조사.csv",
-        "산림청 임도시설 현황": "산림청_임도시설 현황.csv",
+    # 각 자료를 구분할 키워드(파일명에 포함되어 있을 단어)
+    PATTERNS = {
+        "과거 10년간 산불통계 (연도별)": "연도",
+        "과거 10년간 산불통계 (지역별)": "지역",
+        "산림청 국유림경영정보 (산림조사)": "국유림경영정보",
+        "산림청 임도시설 현황": "임도시설",
     }
 
     def read_csv_safely(path: Path) -> pd.DataFrame:
@@ -338,21 +339,37 @@ with st.expander("📂 실제 연구 자료 CSV 열람하기"):
         except UnicodeDecodeError:
             return pd.read_csv(path, encoding="cp949")
 
+    # data 폴더 안에 실제 어떤 CSV가 있는지 한 번 보여주기
     st.caption(f"현재 data 폴더 경로: `{DATA_DIR}`")
+    csv_list = list(DATA_DIR.glob("*.csv"))
+    if csv_list:
+        st.write("📁 data 폴더에 있는 CSV 파일들:")
+        for p in csv_list:
+            st.write(f"- `{p.name}`")
+    else:
+        st.warning("data 폴더 안에 CSV 파일이 없습니다.")
+        st.stop()
 
-    for title, filename in CSV_FILES.items():
-        file_path = DATA_DIR / filename
+    # 패턴별로 파일 자동 매칭
+    for title, pattern in PATTERNS.items():
+        # pattern 이 이름에 들어 있는 csv 파일 찾기
+        candidates = [p for p in csv_list if pattern in p.name]
 
         with st.expander(f"📄 {title}"):
-            if file_path.exists():
-                df_src = read_csv_safely(file_path)
-                st.dataframe(df_src)
+            if not candidates:
+                st.warning(f"⚠ 이름에 `{pattern}` 이(가) 들어 있는 CSV를 data 폴더에서 찾을 수 없습니다.")
+                continue
 
-                st.download_button(
-                    label="⬇ CSV 다운로드",
-                    data=df_src.to_csv(index=False),
-                    file_name=filename,
-                    mime="text/csv",
-                )
-            else:
-                st.warning(f"⚠ `{filename}` 파일을 data 폴더에서 찾을 수 없습니다.")
+            file_path = candidates[0]  # 첫 번째 매칭 사용
+            df_src = read_csv_safely(file_path)
+
+            st.markdown(f"`{file_path.name}` 파일에서 불러왔습니다.")
+            st.dataframe(df_src)
+
+            st.download_button(
+                label="⬇ CSV 다운로드",
+                data=df_src.to_csv(index=False),
+                file_name=file_path.name,
+                mime="text/csv",
+            )
+
