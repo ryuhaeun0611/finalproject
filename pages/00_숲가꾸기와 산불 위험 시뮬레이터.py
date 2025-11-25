@@ -237,3 +237,17 @@ with st.expander("📂 실제 연구 자료 CSV 열람하기"):
                     file_name=p.name,
                     mime="text/csv",
                 )
+
+
+X = df[features]
+y = df["fire_damage_area"]
+
+reg_model = LinearRegression().fit(X, y)
+rf_model = RandomForestRegressor(random_state=42, n_estimators=300, max_depth=5).fit(X, y)
+
+# 👉 MAE 페이지에서 불러다 쓸 수 있게 저장
+st.session_state["reg_model"] = reg_model
+st.session_state["rf_model"] = rf_model
+st.session_state["X"] = X
+st.session_state["y"] = y
+
